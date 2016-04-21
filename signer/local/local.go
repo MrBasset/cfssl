@@ -113,10 +113,6 @@ func (s *Signer) sign(template *x509.Certificate, profile *config.SigningProfile
 		initRoot = true
 		template.MaxPathLen = signer.MaxPathLen
 		template.MaxPathLenZero = signer.MaxPathLenZero
-	} else if template.IsCA {
-		template.MaxPathLen = 1
-		template.DNSNames = nil
-		template.EmailAddresses = nil
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, template, s.ca, template.PublicKey, s.priv)
