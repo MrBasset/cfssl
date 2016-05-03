@@ -72,11 +72,8 @@ func ParseName(name pkix.Name) Name {
 func formatKeyID(id []byte) string {
 	var s string
 
-	for i, c := range id {
-		if i > 0 {
-			s += ":"
-		}
-		s += fmt.Sprintf("%X", c)
+	for _,c := range id {
+		s += fmt.Sprintf("%02x", c)
 	}
 
 	return s
