@@ -3,6 +3,8 @@ package universal
 
 import (
 	"crypto/x509"
+    "crypto/x509/pkix"
+    "time"
 
 	"github.com/cloudflare/cfssl/certdb"
 	"github.com/cloudflare/cfssl/config"
@@ -166,6 +168,15 @@ func (s *Signer) Sign(req signer.SignRequest) (cert []byte, err error) {
 
 }
 
+// delegates to x509.CreateCRL using the signers certificate and private key
+func (s *Signer) CreateCRL(revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (cert []byte, err error) {
+
+	if s.remote != nil {
+		return s.remote.CreateCRL(revokedCerts, now, expiry)
+	}
+	return s.local.CreateCRL(revokedCerts, now, expiry)
+}
+
 // Info sends an info request to the remote or local CFSSL server
 // receiving an Resp struct or an error in response.
 func (s *Signer) Info(req info.Req) (resp *info.Resp, err error) {
@@ -207,3 +218,4 @@ func (s *Signer) SetPolicy(policy *config.Signing) {
 func (s *Signer) Policy() *config.Signing {
 	return s.policy
 }
+
