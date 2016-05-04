@@ -136,13 +136,19 @@ var endpoints = map[string]func() (http.Handler, error){
 		if s == nil {
 			return nil, errBadSigner
 		}
-		return crl.NewHandler(), nil
+        
+                if db == nil {
+			return nil, errNoCertDBConfigured
+		}
+        
+		return crl.NewHandler(certsql.NewAccessor(db), s), nil
 	},
 
 	"newcert": func() (http.Handler, error) {
 		if s == nil {
 			return nil, errBadSigner
 		}
+        
 		return generator.NewCertGeneratorHandlerFromSigner(generator.CSRValidate, s), nil
 	},
 
@@ -291,3 +297,4 @@ func serverMain(args []string, c cli.Config) error {
 
 // Command assembles the definition of Command 'serve'
 var Command = &cli.Command{UsageText: serverUsageText, Flags: serverFlags, Main: serverMain}
+

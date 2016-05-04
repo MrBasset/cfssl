@@ -2,8 +2,10 @@ package remote
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/cloudflare/cfssl/api/client"
 	"github.com/cloudflare/cfssl/certdb"
@@ -47,6 +49,11 @@ func (s *Signer) Sign(req signer.SignRequest) (cert []byte, err error) {
 		return cert, nil
 	}
 	return
+}
+
+// returns error, not implemented
+func (s *Signer) CreateCRL(revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (cert []byte, err error) {
+    return nil, errors.New("Method not implemented")
 }
 
 // Info sends an info request to the remote CFSSL server, receiving an
@@ -116,3 +123,4 @@ func (s *Signer) SetDBAccessor(dba certdb.Accessor) {
 func (s *Signer) Policy() *config.Signing {
 	return s.policy
 }
+

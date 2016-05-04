@@ -2,13 +2,12 @@
 package crl
 
 import (
-	"crypto/rand"
 	"crypto/x509/pkix"
 	"encoding/json"
 	"github.com/cloudflare/cfssl/api"
-	"github.com/cloudflare/cfssl/errors"
-	"github.com/cloudflare/cfssl/helpers"
+	"github.com/cloudflare/cfssl/certdb"
 	"github.com/cloudflare/cfssl/log"
+	"github.com/cloudflare/cfssl/signer"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -19,15 +18,12 @@ import (
 
 // This type is meant to be unmarshalled from JSON
 type jsonCRLRequest struct {
-	Certificate  string   `json:"certificate"`
-	SerialNumber []string `json:"serialNumber"`
-	PrivateKey   string   `json:"issuingKey"`
 	ExpiryTime   string   `json:"expireTime"`
 }
 
 // Handle responds to requests for crl generation. It creates this crl
 // based off of the given certificate, serial numbers, and private key
-func crlHandler(w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	var revokedCerts []pkix.RevokedCertificate
 	var oneWeek = time.Duration(604800) * time.Second
@@ -63,38 +59,44 @@ func crlHandler(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-
-	cert, err := helpers.ParseCertificatePEM([]byte(req.Certificate))
-	if err != nil {
-		log.Error("Error from ParseCertificatePEM", err)
-		return errors.NewBadRequestString("Malformed certificate")
+    
+    expiredCerts, err := h.dbAccessor.GetExpiredCertificates()
+    
+    if err != nil {
+		log.Error(err)
+        return err
 	}
-
-	for _, value := range req.SerialNumber {
-		tempBigInt := new(big.Int)
-		tempBigInt.SetString(value, 10)
-		tempCert := pkix.RevokedCertificate{
-			SerialNumber:   tempBigInt,
-			RevocationTime: time.Now(),
-		}
-		revokedCerts = append(revokedCerts, tempCert)
-	}
-
-	key, err := helpers.ParsePrivateKeyPEM([]byte(req.PrivateKey))
-	if err != nil {
-		log.Debug("Malformed private key %v", err)
-		return errors.NewBadRequestString("Malformed Private Key")
-	}
-
-	result, err := cert.CreateCRL(rand.Reader, key, revokedCerts, time.Now(), newExpiryTime)
+    
+    for _, c := range expiredCerts {
+        tempBigInt := new(big.Int)
+        tempBigInt.SetString(c.Serial, 10)
+        tempCert := pkix.RevokedCertificate{
+            SerialNumber:   tempBigInt,
+            RevocationTime: time.Now(),
+        }
+        revokedCerts = append(revokedCerts, tempCert)
+    }
+    
+	result, err := h.signer.CreateCRL(revokedCerts, time.Now(), newExpiryTime)
 
 	return api.SendResponse(w, result)
 }
 
-// NewHandler returns a new http.Handler that handles a crl generation request.
-func NewHandler() http.Handler {
-	return api.HTTPHandler{
-		Handler: api.HandlerFunc(crlHandler),
+// A Handler accepts requests with a serial number parameter
+// and revokes
+type Handler struct {
+	dbAccessor certdb.Accessor
+    signer signer.Signer
+}
+
+// NewHandler returns a new http.Handler that handles a revoke request.
+func NewHandler(dbAccessor certdb.Accessor, signer signer.Signer) http.Handler {
+	return &api.HTTPHandler{
+		Handler: &Handler{
+			dbAccessor: dbAccessor,
+			signer:    signer,
+		},
 		Methods: []string{"POST"},
 	}
 }
+

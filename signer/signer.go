@@ -105,6 +105,7 @@ type Signer interface {
 	SetPolicy(*config.Signing)
 	SigAlgo() x509.SignatureAlgorithm
 	Sign(req SignRequest) (cert []byte, err error)
+    CreateCRL(revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (cert []byte, err error)
 }
 
 // Profile gets the specific profile from the signer
@@ -408,3 +409,4 @@ func addPolicies(template *x509.Certificate, policies []config.CertificatePolicy
 	})
 	return nil
 }
+

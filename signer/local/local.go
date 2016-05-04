@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/mail"
 	"os"
+	"time"
 
 	"github.com/cloudflare/cfssl/certdb"
 	"github.com/cloudflare/cfssl/config"
@@ -420,6 +421,11 @@ func serializeSCTList(sctList []ct.SignedCertificateTimestamp) ([]byte, error) {
 	return bytes.Join([][]byte{sctListLengthField, buf.Bytes()}, nil), nil
 }
 
+// delegates to x509.CreateCRL using the signers certificate and private key
+func (s *Signer) CreateCRL(revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (cert []byte, err error) {
+    return s.ca.CreateCRL(rand.Reader, s.priv, revokedCerts, now, expiry)
+}
+
 // Info return a populated info.Resp struct or an error.
 func (s *Signer) Info(req info.Req) (resp *info.Resp, err error) {
 	cert, err := s.Certificate(req.Label, req.Profile)
@@ -467,3 +473,4 @@ func (s *Signer) SetDBAccessor(dba certdb.Accessor) {
 func (s *Signer) Policy() *config.Signing {
 	return s.policy
 }
+
