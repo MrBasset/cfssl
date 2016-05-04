@@ -18,6 +18,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/universal"
+    "github.com/cloudflare/cfssl/helpers"
 )
 
 // CSRNoHostMessage is used to alert the user to a certificate lacking a hosts field.
@@ -95,6 +96,16 @@ func computeSum(in []byte) (sum Sum, err error) {
 	sum.MD5 = fmt.Sprintf("%X", md5Sum[:])
 	sum.SHA1 = fmt.Sprintf("%X", sha1Sum[:])
 	return
+}
+
+func formatKeyID(id []byte) string {
+	var s string
+
+	for _,c := range id {
+		s += fmt.Sprintf("%02x", c)
+	}
+
+	return s
 }
 
 // Handle responds to requests for the CA to generate a new private
@@ -264,11 +275,22 @@ func (cg *CertGeneratorHandler) Handle(w http.ResponseWriter, r *http.Request) e
 	if err != nil {
 		return errors.NewBadRequest(err)
 	}
+    
+    log.Info("Fetching cert info")
+    cert, err := helpers.ParseCertificatePEM(certBytes)
+	if err != nil {
+		return errors.NewBadRequest(err)
+	}
 
 	result := map[string]interface{}{
 		"private_key":         string(key),
 		"certificate_request": string(csr),
 		"certificate":         string(certBytes),
+        "certificate_info":    map[string]interface{}{
+            "AKI":             formatKeyID(cert.AuthorityKeyId),
+            "SKI":             formatKeyID(cert.SubjectKeyId),
+            "Serial":          cert.SerialNumber.String(),
+        },
 		"sums": map[string]Sum{
 			"certificate_request": reqSum,
 			"certificate":         certSum,
@@ -288,3 +310,4 @@ func (cg *CertGeneratorHandler) Handle(w http.ResponseWriter, r *http.Request) e
 func CSRValidate(req *csr.CertificateRequest) error {
 	return nil
 }
+
